@@ -28,6 +28,7 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
   abl <- c()
   
   for (i in 1:burnin) {
+    # draw_a and draw_b are local variables, determine which arm add the first UR distribution
     draw_a <- runif(1)
     draw_b <- runif(1)
     
@@ -57,6 +58,7 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
     
   }
   for (i in (burnin + 1):n) {
+    # update prior at 
     m = i %% batch 
     if (m == 0){
       draw_a <-
@@ -89,7 +91,7 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
       }
       
       if (draw_b >draw_a){
-        APT_1 = APT_1+1
+        APT_1 = APT_1 + 1
       }
     }
     if (draw_a > draw_b) {
@@ -110,7 +112,7 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
       }
     }
     if (draw_b > draw_a){
-      APT_2 <- APT_2+1
+      APT_2 <- APT_2 + 1
     }
     arm_a_successes[i] <- arm_a_s
     arm_a_failures[i] <- arm_a_f
@@ -122,6 +124,7 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
   nb <- arm_b_successes + arm_b_failures
   pa_est <- arm_a_successes / na
   pb_est <- arm_b_successes / nb
+  # waldScore for confidence interval, is a way to analyze categorical data underlying chi-squared distribution
   WaldScore <-
     (pa_est - pb_est) / sqrt(pa_est * (1 - pa_est) / na + pb_est * (1 - pb_est) /nb)
   reward <- (na * pa + nb * pb) / c(1:n)
@@ -150,7 +153,7 @@ empirical_cv <- function(APT, alpha){
   cdf = 0
   i = 0 
   while (cdf <= 1- alpha){
-    p_i <-sum(APT ==i)/length(APT)
+    p_i <-sum(APT == i)/length(APT)
     cdf <- sum(cdf, p_i)
     i = i + 1
   }
@@ -158,31 +161,31 @@ empirical_cv <- function(APT, alpha){
 }
 ```
 
-## Calculating FPR  for case where effect size is 0, to find critical values for APT1 
+## Calculating FPR for case where effect size is 0, to find critical values for APT1 
 
 
 ```{r FPR, echo=TRUE}
 set.seed(0)
-#calculate power and reward in case p1>p2
+#calculate power and reward in case p0 < p1
 alpha <- 0.05
 effect_size <- 0
-p1 <- 0.5 - effect_size / 2
-p2 <- 0.5 + effect_size / 2
-N <- 15
-B <- 5000
-c <- 0.1
-burn_in <- 2 # note that burnin needs to be 
-n <-  3
-Ti <- N/n
+p0 <- 0.5 - effect_size / 2
+p1 <- 0.5 + effect_size / 2
+N <- 15 # sample_size(total number of trails in one simulation)
+B <- 5000 # number of simulation 
+c <- 0.1 # threshold
+burn_in <- 2 
+n <-  3 # batch_size
+Ti <- N/n # num_batches
 results <- array(dim = c(B, 4))
 for (i in 1:B) {
   results[i,] <-
     TSPDD(
-      pa = p1,
-      pb = p2,
+      pa = p0,
+      pb = p1,
       n = N,
       c = c,
-      burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
+      burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1, burnin=2 means there is one UR distribution before apply TSPost-Diff
       batch = n
     ) 
 }
