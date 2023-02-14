@@ -183,13 +183,13 @@ for (i in 1:B) {
     TSPDD(
       pa = p0,
       pb = p1,
-      n = N,
+      n = Ti,
       c = c,
       burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1, burnin=2 means there is one UR distribution before apply TSPost-Diff
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
@@ -226,13 +226,13 @@ for (i in 1:B) {
     TSPDD(
       pa = p1,
       pb = p2,
-      n = N,
+      n = Ti,
       c = c,
       burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
@@ -258,13 +258,13 @@ for (i in 1:B) {
     TSPDD(
       pa = p1,
       pb = p2,
-      n = N,
+      n = Ti,
       c = c,
       burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
@@ -291,13 +291,13 @@ for (i in 1:B) {
     TSPDD(
       pa = p1,
       pb = p2,
-      n = N,
+      n = Ti,
       c = c,
       burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
@@ -325,13 +325,13 @@ for (i in 1:B) {
     TSPDD(
       pa = p1,
       pb = p2,
-      n = N,
+      n = Ti,
       c = c,
       burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
@@ -368,13 +368,13 @@ for (i in 1:B) {
     TSPDD(
       pa = p1,
       pb = p2,
-      n = N,
+      n = Ti,
       c = c,
       burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
@@ -400,13 +400,13 @@ for (i in 1:B) {
     TSPDD(
       pa = p1,
       pb = p2,
-      n = N,
+      n = Ti,
       c = c,
       burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
@@ -433,13 +433,13 @@ for (i in 1:B) {
     TSPDD(
       pa = p1,
       pb = p2,
-      n = N,
+      n = Ti,
       c = c,
       burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
