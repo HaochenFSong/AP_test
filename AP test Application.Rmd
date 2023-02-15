@@ -8,10 +8,22 @@ date: "2022-08-18"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Secion 1 Running POST-Diff (Code adapted from Tong)
+## Section 1 Running POST-Diff (Code adapted from Tong)
 
 ```{r Post Diff, echo = TRUE}
+#' TSPostdiff
+#'
+#' Runs TSPostdiff in two armed scenario for n batches, with given batch size and burnin period
+#' @param pa prior probability of arm a
+#' @param pb prior probability of arm b
+#' @param n number of batches in one simulation
+#' @param burnin number of batches that runs only uniform random sampling before applying TS-Post Diff to provide more successes and failures in the beta distribution # nolint
+#' @param batch number of trials before updating posterior probability
+#' 
+#' @return vector containing WaldScore[n], reward[n], APT_1, APT_2: the final waldscore, reward, and AP test statistics for both arms
+
 TSPDD <- function(pa, pb, n, c, burnin, batch) {
+  # Set arm success and failures
   arm_a_successes <- c(0)
   arm_a_failures <- c(0)
   arm_b_successes <- c(0)
@@ -21,18 +33,24 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
   arm_a_f <- c(0)
   arm_b_s <- c(0)
   arm_b_f <- c(0)
-  
+ 
+  # AP Test statistic for arm a and arm b
+  # TODO: rename to APT_a and APT_b?
   APT_1 = 0
   APT_2 = 0
   
+  # TODO: Unclear variable name
   abl <- c()
   
+  # BURNIN PERIOD: use UR only
   for (i in 1:burnin) {
     # draw_a and draw_b are local variables, determine which arm add the first UR distribution
     draw_a <- runif(1)
     draw_b <- runif(1)
     
+    # if draw a is bigger than draw b
     if (draw_a > draw_b) {
+      # Check if smaller than prior probability, update abl, number of successes & failures for arm a
       if (runif(1) < pa) {
         abl[i] <- 1
         arm_a_s <- arm_a_s + 1
@@ -41,7 +59,10 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
         arm_a_f <- arm_a_f + 1
       }
     }
+
+    # if draw b is bigger than draw a
     else{
+      # Check if smaller than prior probability, update abl, number of successes & failures for arm b
       if (runif(1) < pb) {
         abl[i] <- 1
         arm_b_s <- arm_b_s + 1
@@ -51,21 +72,27 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
         arm_b_f <- arm_b_f + 1
       }
     }
+
+    # Update total number of success and failures for arms a and b
     arm_a_successes[i] <- arm_a_s
     arm_a_failures[i] <- arm_a_f
     arm_b_successes[i] <- arm_b_s
     arm_b_failures[i] <- arm_b_f
     
   }
+
+  # NOT BURNIN PERIOD: Use TS or UR depending on difference between posterior probabilities
   for (i in (burnin + 1):n) {
-    # update prior at 
+    # update posterior probability based on batch size 
     m = i %% batch 
+    # Update posterior probability
     if (m == 0){
       draw_a <-
         rbeta(1, arm_a_successes[i - 1] + 1, arm_a_failures[i - 1] + 1)
       draw_b <-
         rbeta(1, arm_b_successes[i - 1] + 1, arm_b_failures[i - 1] + 1)
     }
+    # Does not update posterior probability 
     else{
       draw_a <-
         rbeta(1, arm_a_successes[i - m] + 1, arm_a_failures[i - m] + 1)
@@ -73,10 +100,14 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
         rbeta(1, arm_b_successes[i - m] + 1, arm_b_failures[i - m] + 1)
     }
     # you can change 1000 to 10000 or whatever to make the result better.
+    # if difference between the posterior proabilities is smaller than the threshold, use UR
     if (abs(draw_a - draw_b) < c) {
       draw_a <- runif(1)
       draw_b <- runif(1)
-    } else {
+    } 
+    # otherwise, use TS 
+    # TODO: refactor code for TS and UR?
+    else {
       if (m == 0){
         draw_a <-
           rbeta(1, arm_a_successes[i - 1] + 1, arm_a_failures[i - 1] + 1)
@@ -90,10 +121,13 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
           rbeta(1, arm_b_successes[i - m] + 1, arm_b_failures[i - m] + 1)
       }
       
+      # TODO: confused
       if (draw_b >draw_a){
         APT_1 = APT_1 + 1
       }
     }
+    # Update arm a and arm b history
+    # Always runs, no matter if it is UR or TS 
     if (draw_a > draw_b) {
       if (runif(1) < pa) {
         abl[i] <- 1
@@ -111,6 +145,8 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
         arm_b_f <- arm_b_f + 1
       }
     }
+
+    # TODO: confused
     if (draw_b > draw_a){
       APT_2 <- APT_2 + 1
     }
@@ -119,23 +155,33 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
     arm_b_successes[i] <- arm_b_s
     arm_b_failures[i] <- arm_b_f
   }
+
   #na: number of times arm A was pulled. nb: same
   na <- arm_a_successes + arm_a_failures
   nb <- arm_b_successes + arm_b_failures
   pa_est <- arm_a_successes / na
   pb_est <- arm_b_successes / nb
+
   # waldScore for confidence interval, is a way to analyze categorical data underlying chi-squared distribution
   WaldScore <-
     (pa_est - pb_est) / sqrt(pa_est * (1 - pa_est) / na + pb_est * (1 - pb_est) /nb)
   reward <- (na * pa + nb * pb) / c(1:n)
-  return(c(WaldScore[n], reward[n], APT_1, APT_2))
   
+  return(c(WaldScore[n], reward[n], APT_1, APT_2))
 }
 ```
 
 ## Finding Critical Values using Normal Assumption on Law of Large Numbers:
 
 ```{r}
+#' Normal CV
+#'
+#' Finds critical value using normal assumption on LLN
+#' @param APT AP Test statistic
+#' @param alpha 
+#' 
+#' @return vector containing WaldScore[n], reward[n], APT_1, APT_2: the final waldscore, reward, and AP test statistics for both arms
+
 normal_cv <- function(APT, alpha){
   m <- mean(APT)
   v <- var(APT)
