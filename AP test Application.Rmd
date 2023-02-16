@@ -38,8 +38,8 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
   arm_b_failures <- c(0)
   
 
-  arm_a_s <- c(0)
-  arm_a_f <- c(0)
+  arm_a_s <- c(0) # number of successes for arm a for each batch
+  arm_a_f <- c(0) # number of succ  `eses
   arm_b_s <- c(0)
   arm_b_f <- c(0)
  
@@ -287,7 +287,7 @@ for (i in 1:B) {
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
@@ -329,7 +329,7 @@ for (i in 1:B) {
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
@@ -361,7 +361,7 @@ for (i in 1:B) {
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
@@ -394,7 +394,7 @@ for (i in 1:B) {
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
@@ -428,7 +428,7 @@ for (i in 1:B) {
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
@@ -471,7 +471,7 @@ for (i in 1:B) {
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
@@ -503,7 +503,7 @@ for (i in 1:B) {
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
@@ -536,7 +536,7 @@ for (i in 1:B) {
       batch = n
     )
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
