@@ -8,40 +8,79 @@ date: "2022-08-18"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Secion 1 Running POST-Diff (Code adapted from Tong)
+#TODO: refactor UR/TS repetition
+```{r setup, include=TRUE}
+UR <- function(){
+
+}
+```
+
+## Section 1 Running POST-Diff (Code adapted from Tong)
 
 ```{r Post Diff, echo = TRUE}
+#' TSPostdiff AP Test
+#'
+#' Runs TSPostdiff in two armed scenario for n batches, with given batch size and burnin period, calculate AP Test statistic for each arm.
+#' @param pa prior probability of arm a
+#' @param pb prior probability of arm b
+#' @param n number of trials in one simulation 
+#' @param burnin number of batches that runs only uniform random sampling before applying TS-Post Diff to provide more successes and failures in the beta distribution # nolint
+#' @param batch number of trials before updating posterior probability
+#' 
+#' @return vector containing WaldScore[n], reward[n], APT_1, APT_2: the final waldscore, reward, and AP test statistics for both arms
+
 TSPDD <- function(pa, pb, n, c, burnin, batch) {
+  # Set arm success and failures
+  # ex. [0,1,1,1,2, 3, 3, 4, 5, 6] final index is total successes
   arm_a_successes <- c(0)
   arm_a_failures <- c(0)
   arm_b_successes <- c(0)
   arm_b_failures <- c(0)
   
+  # Successes and failures as a list of one number at a certain time
   arm_a_s <- c(0)
   arm_a_f <- c(0)
   arm_b_s <- c(0)
   arm_b_f <- c(0)
-  
+ 
+  # AP Test statistic for arm a and arm b
+  # TODO: referring to arms as a and b, vs 1 and 2?
   APT_1 = 0
   APT_2 = 0
   
+  # list that tracks number of successes for all arms
+  # history generated for all the arms successes and failures
   abl <- c()
   
+  # BURNIN PERIOD: use UR only
   for (i in 1:burnin) {
     # draw_a and draw_b are local variables, determine which arm add the first UR distribution
+    # draw a and draw b: allocation probability of arms a and b
     draw_a <- runif(1)
-    draw_b <- runif(1)
+    draw_b <- runif(1) #whenever runif(1) < pa/pb is indicated inside of draw a  
+                         #and draw b comparisons, it means an arm is being
+                           #pulled (with random probability)
     
+    # if draw a is bigger than draw b
     if (draw_a > draw_b) {
+      # "choose arm a"
+      # Check if smaller than prior probability, update abl, number of successes & failures for arm a
+      # new randomly generated probability is smaller than the prior probability
+      # check if arm a was "successful", has reward
       if (runif(1) < pa) {
+        # arm a is successufl
         abl[i] <- 1
-        arm_a_s <- arm_a_s + 1
+        arm_a_s <- arm_a_s + 1  #runif(1) is different in each pa/pb comparison
       } else {
+        # arm a was not successful (not chosen)
         abl[i] <- 0
         arm_a_f <- arm_a_f + 1
       }
     }
+
+    # if draw b is bigger than draw a
     else{
+      # Check if smaller than prior probability, update abl, number of successes & failures for arm b
       if (runif(1) < pb) {
         abl[i] <- 1
         arm_b_s <- arm_b_s + 1
@@ -51,49 +90,82 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
         arm_b_f <- arm_b_f + 1
       }
     }
+
+    # Update total number of success and failures for arms a and b
+    # TODO: why not directly add to arm_a_successes earlier? Difference between these
     arm_a_successes[i] <- arm_a_s
     arm_a_failures[i] <- arm_a_f
     arm_b_successes[i] <- arm_b_s
     arm_b_failures[i] <- arm_b_f
     
+     #^^tracking the build-up of successes and failures under each arm, during
+      #each iteration of for loop, starts at 0, continues until #burnin                    #total iterations, first index = 0, last index = # of successes 
+    
+    
   }
+
+  # NOT BURNIN PERIOD: Use TS or UR depending on difference between posterior probabilities
+  
   for (i in (burnin + 1):n) {
-    # update prior at 
+    # update posterior probability based on batch size 
     m = i %% batch 
+    # Update posterior probability
     if (m == 0){
       draw_a <-
-        rbeta(1, arm_a_successes[i - 1] + 1, arm_a_failures[i - 1] + 1)
+        rbeta(1, arm_a_successes[i - 1] + 1, arm_a_failures[i - 1] + 1) #draw from Beta(alpha, beta) distribution based on current successes & failures
       draw_b <-
-        rbeta(1, arm_b_successes[i - 1] + 1, arm_b_failures[i - 1] + 1)
+        rbeta(1, arm_b_successes[i - 1] + 1, arm_b_failures[i - 1] + 1) # alpha = current successes, beta = current failures of each arm
     }
+    # Does not update posterior probability 
     else{
       draw_a <-
-        rbeta(1, arm_a_successes[i - m] + 1, arm_a_failures[i - m] + 1)
+        rbeta(1, arm_a_successes[i - m] + 1, arm_a_failures[i - m] + 1) # using the last settings for the distribution (not updated yet)
       draw_b <-
         rbeta(1, arm_b_successes[i - m] + 1, arm_b_failures[i - m] + 1)
     }
     # you can change 1000 to 10000 or whatever to make the result better.
+    
+    # if difference between the posterior proabilities is smaller than the threshold, use UR
     if (abs(draw_a - draw_b) < c) {
       draw_a <- runif(1)
       draw_b <- runif(1)
-    } else {
-      if (m == 0){
+    } 
+    # otherwise, use TS 
+    # TODO: refactor code for TS and UR? avoid repetitive code
+    # generate TS based on past history
+    else {
+      if (m == 0){ #batch = # of trials iterated before posterior prob update 
+                    #this means whenever m becomes 0 again, the post prob
+                   #is updated over and over again
+                  #greater batch size -> slower and less post prob updates
         draw_a <-
           rbeta(1, arm_a_successes[i - 1] + 1, arm_a_failures[i - 1] + 1)
         draw_b <-
           rbeta(1, arm_b_successes[i - 1] + 1, arm_b_failures[i - 1] + 1)
       }
+              #each time batch size is "crossed", m == 0, rbeta parameters are
+        #updated to include most current success/failure counts, post prob
+      #when m != 0, we stick with info from previous batch, older post prob
+    #why rbeta? most suitable for binary reward system such as TSPDD
+  #you can change 1000 to 10000 or whatever to make the result better
       else{
         draw_a <-
           rbeta(1, arm_a_successes[i - m] + 1, arm_a_failures[i - m] + 1)
         draw_b <-
           rbeta(1, arm_b_successes[i - m] + 1, arm_b_failures[i - m] + 1)
       }
+          #same TS updating process done here again but on a more local level, 
+        #if the effect size is better than the threshold, it shows we are 
+      #willing to go back to exploiting again, when effect size is smaller, 
+    #we are open to doing more exploration with UR
       
+      # update AP test statistic 1 (without UR sampling)
       if (draw_b >draw_a){
         APT_1 = APT_1 + 1
       }
     }
+    # Update arm a and arm b history
+    # Always runs, no matter if it is UR or TS 
     if (draw_a > draw_b) {
       if (runif(1) < pa) {
         abl[i] <- 1
@@ -111,6 +183,8 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
         arm_b_f <- arm_b_f + 1
       }
     }
+
+    # AP Test statistic 2 (including the ones with UR)
     if (draw_b > draw_a){
       APT_2 <- APT_2 + 1
     }
@@ -119,25 +193,44 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
     arm_b_successes[i] <- arm_b_s
     arm_b_failures[i] <- arm_b_f
   }
+
+
   #na: number of times arm A was pulled. nb: same
   na <- arm_a_successes + arm_a_failures
   nb <- arm_b_successes + arm_b_failures
+  # estimated posterior probability of arms a and b
+  # [] posterior prob for arm a to be successful for each timepoint
   pa_est <- arm_a_successes / na
   pb_est <- arm_b_successes / nb
+
   # waldScore for confidence interval, is a way to analyze categorical data underlying chi-squared distribution
+  # vectors, instead of summation
   WaldScore <-
     (pa_est - pb_est) / sqrt(pa_est * (1 - pa_est) / na + pb_est * (1 - pb_est) /nb)
-  reward <- (na * pa + nb * pb) / c(1:n)
-  return(c(WaldScore[n], reward[n], APT_1, APT_2))
   
+  # vector of rewards (history)
+  # expected reward we have from both arms at different sample sizes
+  # TODO: rename to expected reward
+  reward <- (na * pa + nb * pb) / c(1:n)
+  
+  # 
+  return(c(WaldScore[n], reward[n], APT_1, APT_2))
 }
 ```
 
 ## Finding Critical Values using Normal Assumption on Law of Large Numbers:
 
 ```{r}
+#' Critical Value (Normal)
+#'
+#' Finds critical value using normal assumption on LLN
+#' @param APT AP Test statistic
+#' @param alpha TODO: what is this parameter? 
+#' 
+#' @return critical value
+
 normal_cv <- function(APT, alpha){
-  m <- mean(APT)
+  m <- mean(APT) 
   v <- var(APT)
   sd <- sqrt(v)
   normal_rej <- qnorm(1-alpha)
@@ -149,6 +242,14 @@ normal_cv <- function(APT, alpha){
 ## Finding Critical Values using Empirical Assumption on Law of Large Number:
 
 ```{r}
+#' Critical Value (Empirical)
+#'
+#' Finds critical value using empirical assumption on LLN
+#' @param APT AP Test statistic
+#' @param alpha TODO: what is this parameter?
+#' 
+#' @return critical value
+
 empirical_cv <- function(APT, alpha){
   cdf = 0
   i = 0 
@@ -161,22 +262,34 @@ empirical_cv <- function(APT, alpha){
 }
 ```
 
+#TODO: make function for calculating FPR and power given effect size = x?
+```{r FPR, echo=TRUE}
+
+#' Calculating FPR for Effect Size
+#'
+#' Finds critical value using empirical assumption on LLN
+#' @param APT AP Test statistic
+#' @param alpha TODO: what is this parameter?
+#' 
+#' @return critical value
+```
+
+
 ## Calculating FPR for case where effect size is 0, to find critical values for APT1 
-
-
 ```{r FPR, echo=TRUE}
 set.seed(0)
 #calculate power and reward in case p0 < p1
 alpha <- 0.05
-effect_size <- 0
+effect_size <- 0 # effect size is 0: no difference between arms
 p0 <- 0.5 - effect_size / 2
 p1 <- 0.5 + effect_size / 2
-N <- 15 # sample_size(total number of trails in one simulation)
-B <- 5000 # number of simulation 
+N <- 15 # sample_size(total number of trials in one simulation)
+B <- 5000 # number of simulations
 c <- 0.1 # threshold
-burn_in <- 2 
+burn_in <- 2 # # of burnin trials
 n <-  3 # batch_size
 Ti <- N/n # num_batches
+
 results <- array(dim = c(B, 4))
 for (i in 1:B) {
   results[i,] <-
@@ -189,26 +302,25 @@ for (i in 1:B) {
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > qnorm(1-alpha))
+average_power = mean(results[, 1] > 1.96)
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
+
 #Histogram of APT1
 hist(APT1, freq = FALSE)
 
-# emipircal CV of APT1 is
+# empirical and normal CV of APT1 is
 em_cv <- empirical_cv(APT1,alpha)
 paste('empirical CV is', em_cv)
-# normal CV of APT1 is
-
 norm_cv <- normal_cv(APT1,alpha)
 paste('normal CV is', norm_cv)
 
 # empirical cdf of APT1 is
-
 F1 <- ecdf(APT1)
 
-paste('empircal FPR is', 1-F1(em_cv))
+# empirical and normal FPR of APT1 is
+paste('empirical FPR is', 1-F1(em_cv))
 paste('normal FPR is', 1-F1(floor(norm_cv)))
 ```
 
@@ -217,7 +329,7 @@ paste('normal FPR is', 1-F1(floor(norm_cv)))
 set.seed(0)
 #calculate power and reward in case p1>p2
 alpha <- 0.05
-effect_size <- 0.05
+effect_size <- 0.05 # effect size is 0.05: difference between arm's rewards is 0.05
 p1 <- 0.5 - effect_size / 2
 p2 <- 0.5 + effect_size / 2
 
@@ -232,13 +344,13 @@ for (i in 1:B) {
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > qnorm(1-alpha))
+average_power = mean(results[, 1] > 1.96)
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
+
 #Histogram of APT1
 hist(APT1, freq = FALSE)
-
 F1 <- ecdf(APT1)
 
 paste('empircal Power is', 1-F1(em_cv))
@@ -264,7 +376,7 @@ for (i in 1:B) {
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > qnorm(1-alpha))
+average_power = mean(results[, 1] > 1.96)
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
@@ -297,7 +409,7 @@ for (i in 1:B) {
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > qnorm(1-alpha))
+average_power = mean(results[, 1] > 1.96)
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
@@ -331,7 +443,7 @@ for (i in 1:B) {
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > qnorm(1-alpha))
+average_power = mean(results[, 1] > 1.96)
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
@@ -374,7 +486,7 @@ for (i in 1:B) {
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > qnorm(1-alpha))
+average_power = mean(results[, 1] > 1.96)
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
@@ -406,7 +518,7 @@ for (i in 1:B) {
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > qnorm(1-alpha))
+average_power = mean(results[, 1] > 1.96)
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
@@ -437,9 +549,9 @@ for (i in 1:B) {
       c = c,
       burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
       batch = n
-    ) 
+    )
 }
-average_power = mean(results[, 1] > qnorm(1-alpha))
+average_power = mean(results[, 1] > 1.96)
 average_reward = mean(results[, 2])
 APT1 = results[,3]
 APT2 = results[,4]
@@ -453,7 +565,6 @@ paste('normal Power is', 1-F1(floor(norm_cv)))
 ```
 
 ## check for normality:
-
 ```{r}
 m <- mean(APT2)
 sd <- sqrt(var(APT2))
