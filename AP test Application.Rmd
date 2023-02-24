@@ -20,14 +20,14 @@ UR <- function(){
 ```{r Post Diff, echo = TRUE}
 #' TSPostdiff AP Test
 #'
-#' Runs TSPostdiff in two armed scenario for n batches, with given batch size and burnin period, calculate AP Test statistic for each arm.
+#' Runs TSPostdiff in two armed scenario for n batches, with given batch size and burnin period, calculate AP Test statistic with or without UR.
 #' @param pa prior probability of arm a
 #' @param pb prior probability of arm b
 #' @param n number of trials in one simulation 
 #' @param burnin number of batches that runs only uniform random sampling before applying TS-Post Diff to provide more successes and failures in the beta distribution # nolint
 #' @param batch number of trials before updating posterior probability
 #' 
-#' @return vector containing WaldScore[n], reward[n], APT_1, APT_2: the final waldscore, reward, and AP test statistics for both arms
+#' @return vector containing WaldScore[n], reward[n], APT_ban_UR, APT_w_UR: the final waldscore, reward, and AP test statistics for both arms
 
 TSPDD <- function(pa, pb, n, c, burnin, batch) {
   # Set arm success and failures
@@ -44,9 +44,9 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
   arm_b_f <- c(0)
  
   # AP Test statistic for arm a and arm b
-  # TODO: referring to arms as a and b, vs 1 and 2?
-  APT_1 = 0
-  APT_2 = 0
+  
+  APT_ban_UR = 0
+  APT_w_UR = 0
   
   # list that tracks number of successes for all arms
   # history generated for all the arms successes and failures
@@ -68,7 +68,7 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
       # new randomly generated probability is smaller than the prior probability
       # check if arm a was "successful", has reward
       if (runif(1) < pa) {
-        # arm a is successufl
+        # arm a is successful
         abl[i] <- 1
         arm_a_s <- arm_a_s + 1  #runif(1) is different in each pa/pb comparison
       } else {
@@ -125,7 +125,7 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
     }
     # you can change 1000 to 10000 or whatever to make the result better.
     
-    # if difference between the posterior proabilities is smaller than the threshold, use UR
+    # if difference between the posterior probabilities is smaller than the threshold, use UR
     if (abs(draw_a - draw_b) < c) {
       draw_a <- runif(1)
       draw_b <- runif(1)
@@ -159,9 +159,9 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
       #willing to go back to exploiting again, when effect size is smaller, 
     #we are open to doing more exploration with UR
       
-      # update AP test statistic 1 (without UR sampling)
+      # update AP_{ban UR} (without UR sampling)
       if (draw_b >draw_a){
-        APT_1 = APT_1 + 1
+        APT_ban_UR = APT_ban_UR + 1
       }
     }
     # Update arm a and arm b history
@@ -184,9 +184,9 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
       }
     }
 
-    # AP Test statistic 2 (including the ones with UR)
+    # AP_{w/ UR} (including the ones with UR)
     if (draw_b > draw_a){
-      APT_2 <- APT_2 + 1
+      APT_w_UR <- APT_w_UR + 1
     }
     arm_a_successes[i] <- arm_a_s
     arm_a_failures[i] <- arm_a_f
@@ -195,7 +195,7 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
   }
 
 
-  #na: number of times arm A was pulled. nb: same
+  #na: number of times arm A was pulled. nb: number of times arm B was pulled
   na <- arm_a_successes + arm_a_failures
   nb <- arm_b_successes + arm_b_failures
   # estimated posterior probability of arms a and b
@@ -214,7 +214,7 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
   reward <- (na * pa + nb * pb) / c(1:n)
   
   # 
-  return(c(WaldScore[n], reward[n], APT_1, APT_2))
+  return(c(WaldScore[n], reward[n], APT_ban_UR, APT_w_UR))
 }
 ```
 
@@ -225,9 +225,9 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
 #'
 #' Finds critical value using normal assumption on LLN
 #' @param APT AP Test statistic
-#' @param alpha TODO: what is this parameter? 
+#' @param alpha Customized significance level
 #' 
-#' @return critical value
+#' @return generated critical value from normality assumption
 
 normal_cv <- function(APT, alpha){
   m <- mean(APT) 
@@ -239,16 +239,16 @@ normal_cv <- function(APT, alpha){
 }
 ```
 
-## Finding Critical Values using Empirical Assumption on Law of Large Number:
+## Finding Critical Values using Empirical Assumption on 5000 simulations:
 
 ```{r}
 #' Critical Value (Empirical)
 #'
 #' Finds critical value using empirical assumption on LLN
 #' @param APT AP Test statistic
-#' @param alpha TODO: what is this parameter?
+#' @param alpha Customized significance level
 #' 
-#' @return critical value
+#' @return generated critical value from expeirical simulations
 
 empirical_cv <- function(APT, alpha){
   cdf = 0
@@ -269,13 +269,13 @@ empirical_cv <- function(APT, alpha){
 #'
 #' Finds critical value using empirical assumption on LLN
 #' @param APT AP Test statistic
-#' @param alpha TODO: what is this parameter?
+#' @param alpha customized significance level
 #' 
 #' @return critical value
 ```
 
 
-## Calculating FPR for case where effect size is 0, to find critical values for APT1 
+## Calculating FPR for case where effect size is 0, to find critical values for APT_{ban UR}
 ```{r FPR, echo=TRUE}
 set.seed(0)
 #calculate power and reward in case p0 < p1
@@ -302,24 +302,24 @@ for (i in 1:B) {
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
-APT1 = results[,3]
-APT2 = results[,4]
+APT_ban_UR = results[,3]
+APT_w_UR = results[,4]
 
-#Histogram of APT1
-hist(APT1, freq = FALSE)
+#Histogram of APT_ban_UR
+hist(APT_ban_UR, freq = FALSE)
 
-# empirical and normal CV of APT1 is
-em_cv <- empirical_cv(APT1,alpha)
+# empirical and normal CV of APT_ban_UR is
+em_cv <- empirical_cv(APT_ban_UR,alpha)
 paste('empirical CV is', em_cv)
-norm_cv <- normal_cv(APT1,alpha)
+norm_cv <- normal_cv(APT_ban_UR,alpha)
 paste('normal CV is', norm_cv)
 
-# empirical cdf of APT1 is
-F1 <- ecdf(APT1)
+# empirical cdf of APT_ban_UR is
+F1 <- ecdf(APT_ban_UR)
 
-# empirical and normal FPR of APT1 is
+# empirical and normal FPR of APT_ban_UR is
 paste('empirical FPR is', 1-F1(em_cv))
 paste('normal FPR is', 1-F1(floor(norm_cv)))
 ```
@@ -327,31 +327,31 @@ paste('normal FPR is', 1-F1(floor(norm_cv)))
 ## Calculating power when p2 -p1 = 0.05
 ```{r FPR, echo=TRUE}
 set.seed(0)
-#calculate power and reward in case p1>p2
+#calculate power and reward in case p0 < p1
 alpha <- 0.05
 effect_size <- 0.05 # effect size is 0.05: difference between arm's rewards is 0.05
-p1 <- 0.5 - effect_size / 2
-p2 <- 0.5 + effect_size / 2
+p0 <- 0.5 - effect_size / 2
+p1 <- 0.5 + effect_size / 2
 
 for (i in 1:B) {
   results[i,] <-
     TSPDD(
-      pa = p1,
-      pb = p2,
+      pa = p0,
+      pb = p1,
       n = Ti,
       c = c,
       burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
-APT1 = results[,3]
-APT2 = results[,4]
+APT_ban_UR = results[,3]
+APT_w_UR = results[,4]
 
-#Histogram of APT1
-hist(APT1, freq = FALSE)
-F1 <- ecdf(APT1)
+#Histogram of APT_ban_UR
+hist(APT_ban_UR, freq = FALSE)
+F1 <- ecdf(APT_ban_UR)
 
 paste('empircal Power is', 1-F1(em_cv))
 paste('normal Power is', 1-F1(floor(norm_cv)))
@@ -359,31 +359,31 @@ paste('normal Power is', 1-F1(floor(norm_cv)))
 ## Calculating power when p2 -p1 = 0.1
 ```{r FPR, echo=TRUE}
 set.seed(0)
-#calculate power and reward in case p1>p2
+#calculate power and reward in case p0 < p1
 alpha <- 0.05
 effect_size <- 0.1
-p1 <- 0.5 - effect_size / 2
-p2 <- 0.5 + effect_size / 2
+p0 <- 0.5 - effect_size / 2
+p1 <- 0.5 + effect_size / 2
 
 for (i in 1:B) {
   results[i,] <-
     TSPDD(
-      pa = p1,
-      pb = p2,
+      pa = p0,
+      pb = p1,
       n = Ti,
       c = c,
       burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
-APT1 = results[,3]
-APT2 = results[,4]
-#Histogram of APT1
-hist(APT1, freq = FALSE)
+APT_ban_UR = results[,3]
+APT_w_UR = results[,4]
+#Histogram of APT_ban_UR
+hist(APT_ban_UR, freq = FALSE)
 
-F1 <- ecdf(APT1)
+F1 <- ecdf(APT_ban_UR)
 
 paste('empircal Power is', 1-F1(em_cv))
 paste('normal Power is', 1-F1(floor(norm_cv)))
@@ -392,75 +392,75 @@ paste('normal Power is', 1-F1(floor(norm_cv)))
 ## Calculating power when p2 -p1 = 0.2
 ```{r FPR, echo=TRUE}
 set.seed(0)
-#calculate power and reward in case p1>p2
+#calculate power and reward in case p0 < p1
 alpha <- 0.05
 effect_size <- 0.2
-p1 <- 0.5 - effect_size / 2
-p2 <- 0.5 + effect_size / 2
+p0 <- 0.5 - effect_size / 2
+p1 <- 0.5 + effect_size / 2
 
 for (i in 1:B) {
   results[i,] <-
     TSPDD(
-      pa = p1,
-      pb = p2,
+      pa = p0,
+      pb = p1,
       n = Ti,
       c = c,
       burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
-APT1 = results[,3]
-APT2 = results[,4]
-#Histogram of APT1
-hist(APT1, freq = FALSE)
+APT_ban_UR = results[,3]
+APT_w_UR = results[,4]
+#Histogram of APT_ban_UR
+hist(APT_ban_UR, freq = FALSE)
 
-F1 <- ecdf(APT1)
+F1 <- ecdf(APT_ban_UR)
 
 paste('empircal Power is', 1-F1(em_cv))
 paste('normal Power is', 1-F1(floor(norm_cv)))
 ```
-## Calculating FPR  for case where effect size is 0, to find critical values for APT2
+## Calculating FPR  for case where effect size is 0, to find critical values for APT_w_UR
 
 
 ```{r FPR, echo=TRUE}
 set.seed(0)
-#calculate power and reward in case p1>p2
+#calculate power and reward in case p0 < p1
 alpha <- 0.05
 effect_size <- 0
-p1 <- 0.5 - effect_size / 2
-p2 <- 0.5 + effect_size / 2
+p0 <- 0.5 - effect_size / 2
+p1 <- 0.5 + effect_size / 2
 results <- array(dim = c(B, 4))
 for (i in 1:B) {
   results[i,] <-
     TSPDD(
-      pa = p1,
-      pb = p2,
+      pa = p0,
+      pb = p1,
       n = Ti,
       c = c,
       burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
-APT1 = results[,3]
-APT2 = results[,4]
-#Histogram of APT1
-hist(APT2, freq = FALSE)
+APT_ban_UR = results[,3]
+APT_w_UR = results[,4]
+#Histogram of APT_w_UR
+hist(APT_w_UR, freq = FALSE)
 
-# emipircal CV of APT1 is
-em_cv <- empirical_cv(APT2,alpha)
+# emipircal CV of APT_w_UR is
+em_cv <- empirical_cv(APT_w_UR,alpha)
 paste('empirical CV is', em_cv)
-# normal CV of APT1 is
+# normal CV of APT_w_UR is
 
-norm_cv <- normal_cv(APT2,alpha)
+norm_cv <- normal_cv(APT_w_UR,alpha)
 paste('normal CV is', norm_cv)
 
-# empirical cdf of APT1 is
+# empirical cdf of APT_w_UR is
 
-F1 <- ecdf(APT2)
+F1 <- ecdf(APT_w_UR)
 
 paste('empircal FPR is', 1-F1(em_cv))
 paste('normal FPR is', 1-F1(floor(norm_cv)))
@@ -469,31 +469,31 @@ paste('normal FPR is', 1-F1(floor(norm_cv)))
 ## Calculating power when p2 -p1 = 0.05
 ```{r FPR, echo=TRUE}
 set.seed(0)
-#calculate power and reward in case p1>p2
+#calculate power and reward in case p0 < p1
 alpha <- 0.05
 effect_size <- 0.05
-p1 <- 0.5 - effect_size / 2
-p2 <- 0.5 + effect_size / 2
+p0 <- 0.5 - effect_size / 2
+p1 <- 0.5 + effect_size / 2
 
 for (i in 1:B) {
   results[i,] <-
     TSPDD(
-      pa = p1,
-      pb = p2,
+      pa = p0,
+      pb = p1,
       n = Ti,
       c = c,
       burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
-APT1 = results[,3]
-APT2 = results[,4]
-#Histogram of APT1
-hist(APT2, freq = FALSE)
+APT_ban_UR = results[,3]
+APT_w_UR = results[,4]
+#Histogram of APT_w_UR
+hist(APT_w_UR, freq = FALSE)
 
-F1 <- ecdf(APT2)
+F1 <- ecdf(APT_w_UR)
 
 paste('empircal Power is', 1-F1(em_cv))
 paste('normal Power is', 1-F1(floor(norm_cv)))
@@ -501,31 +501,31 @@ paste('normal Power is', 1-F1(floor(norm_cv)))
 ## Calculating power when p2 -p1 = 0.1
 ```{r FPR, echo=TRUE}
 set.seed(0)
-#calculate power and reward in case p1>p2
+#calculate power and reward in case p0 < p1
 alpha <- 0.05
 effect_size <- 0.1
-p1 <- 0.5 - effect_size / 2
-p2 <- 0.5 + effect_size / 2
+p0 <- 0.5 - effect_size / 2
+p1 <- 0.5 + effect_size / 2
 
 for (i in 1:B) {
   results[i,] <-
     TSPDD(
-      pa = p1,
-      pb = p2,
+      pa = p0,
+      pb = p1,
       n = Ti,
       c = c,
       burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
       batch = n
     ) 
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
-APT1 = results[,3]
-APT2 = results[,4]
-#Histogram of APT1
-hist(APT2, freq = FALSE)
+APT_ban_UR = results[,3]
+APT_w_UR = results[,4]
+#Histogram of APT_w_UR
+hist(APT_w_UR, freq = FALSE)
 
-F1 <- ecdf(APT2)
+F1 <- ecdf(APT_w_UR)
 
 paste('empircal Power is', 1-F1(em_cv))
 paste('normal Power is', 1-F1(floor(norm_cv)))
@@ -534,31 +534,31 @@ paste('normal Power is', 1-F1(floor(norm_cv)))
 ## Calculating power when p2 -p1 = 0.2
 ```{r FPR, echo=TRUE}
 set.seed(0)
-#calculate power and reward in case p1>p2
+#calculate power and reward in case p0 < p1
 alpha <- 0.05
 effect_size <- 0.2
-p1 <- 0.5 - effect_size / 2
-p2 <- 0.5 + effect_size / 2
+p0 <- 0.5 - effect_size / 2
+p1 <- 0.5 + effect_size / 2
 
 for (i in 1:B) {
   results[i,] <-
     TSPDD(
-      pa = p1,
-      pb = p2,
+      pa = p0,
+      pb = p1,
       n = Ti,
       c = c,
       burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
       batch = n
     )
 }
-average_power = mean(results[, 1] > 1.96)
+average_power = mean(results[, 1] > qnorm(1-alpha))
 average_reward = mean(results[, 2])
-APT1 = results[,3]
-APT2 = results[,4]
-#Histogram of APT1
-hist(APT2, freq = FALSE)
+APT_ban_UR = results[,3]
+APT_w_UR = results[,4]
+#Histogram of APT_w_UR
+hist(APT_w_UR, freq = FALSE)
 
-F1 <- ecdf(APT2)
+F1 <- ecdf(APT_w_UR)
 
 paste('empircal Power is', 1-F1(em_cv))
 paste('normal Power is', 1-F1(floor(norm_cv)))
@@ -566,9 +566,9 @@ paste('normal Power is', 1-F1(floor(norm_cv)))
 
 ## check for normality:
 ```{r}
-m <- mean(APT2)
-sd <- sqrt(var(APT2))
+m <- mean(APT_w_UR)
+sd <- sqrt(var(APT_w_UR))
 
-hist((APT2-m)/sd)
+hist((APT_w_UR-m)/sd)
 ```
 
