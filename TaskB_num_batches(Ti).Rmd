@@ -1,18 +1,12 @@
 ---
-title: "AP test application"
+title: "TaskB_num_batches(Ti)"
+author: "Bingcheng Wang"
+date: "28/02/2023"
 output: pdf_document
-date: "2022-08-18"
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-```
-
-#TODO: refactor UR/TS repetition
-```{r setup, include=TRUE}
-UR <- function(){
-
-}
 ```
 
 ## Section 1 Running POST-Diff (Code adapted from Tong)
@@ -262,19 +256,6 @@ empirical_cv <- function(APT, alpha){
 }
 ```
 
-#TODO: make function for calculating FPR and power given effect size = x?
-```{r FPR, echo=TRUE}
-
-#' Calculating FPR for Effect Size
-#'
-#' Finds critical value using empirical assumption on LLN
-#' @param APT AP Test statistic
-#' @param alpha customized significance level
-#' 
-#' @return critical value
-```
-
-
 ## Calculating FPR for case where effect size is 0, to find critical values for APT_{ban UR}
 ```{r FPR, echo=TRUE}
 set.seed(0)
@@ -283,13 +264,12 @@ alpha <- 0.05
 effect_size <- 0 # effect size is 0: no difference between arms
 p0 <- 0.5 - effect_size / 2
 p1 <- 0.5 + effect_size / 2
-N <- 150 # sample_size(total number of trials in one simulation)
+N <- 200 # sample_size(total number of trials in one simulation)
 B <- 5000 # number of simulations
 c <- 0.1 # threshold
 burn_in <- 2 # # of burnin trials
-n <-  3 # batch_size
+n <-  1 # batch_size
 Ti <- N/n # num_batches
-
 results <- array(dim = c(B, 4))
 for (i in 1:B) {
   results[i,] <-
@@ -324,120 +304,28 @@ paste('empirical FPR is', 1-F1(em_cv))
 paste('normal FPR is', 1-F1(floor(norm_cv)))
 ```
 
-## Calculating power when p2 -p1 = 0.05
-```{r FPR, echo=TRUE}
-set.seed(0)
-#calculate power and reward in case p0 < p1
-alpha <- 0.05
-effect_size <- 0.05 # effect size is 0.05: difference between arm's rewards is 0.05
-p0 <- 0.5 - effect_size / 2
-p1 <- 0.5 + effect_size / 2
-
-for (i in 1:B) {
-  results[i,] <-
-    TSPDD(
-      pa = p0,
-      pb = p1,
-      n = N,
-      c = c,
-      burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
-      batch = n
-    ) 
-}
-average_power = mean(results[, 1] > qnorm(1-alpha))
-average_reward = mean(results[, 2])
-APT_ban_UR = results[,3]
-APT_w_UR = results[,4]
-
-#Histogram of APT_ban_UR
-hist(APT_ban_UR, freq = FALSE)
-F1 <- ecdf(APT_ban_UR)
-
-paste('empircal Power is', 1-F1(em_cv))
-paste('normal Power is', 1-F1(floor(norm_cv)))
-```
-## Calculating power when p2 -p1 = 0.1
-```{r FPR, echo=TRUE}
-set.seed(0)
-#calculate power and reward in case p0 < p1
-alpha <- 0.05
-effect_size <- 0.1
-p0 <- 0.5 - effect_size / 2
-p1 <- 0.5 + effect_size / 2
-
-for (i in 1:B) {
-  results[i,] <-
-    TSPDD(
-      pa = p0,
-      pb = p1,
-      n = Ti,
-      c = c,
-      burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
-      batch = n
-    ) 
-}
-average_power = mean(results[, 1] > qnorm(1-alpha))
-average_reward = mean(results[, 2])
-APT_ban_UR = results[,3]
-APT_w_UR = results[,4]
-#Histogram of APT_ban_UR
-hist(APT_ban_UR, freq = FALSE)
-
-F1 <- ecdf(APT_ban_UR)
-
-paste('empircal Power is', 1-F1(em_cv))
-paste('normal Power is', 1-F1(floor(norm_cv)))
-```
-
-## Calculating power when p2 -p1 = 0.2
-```{r FPR, echo=TRUE}
-set.seed(0)
-#calculate power and reward in case p0 < p1
-alpha <- 0.05
-effect_size <- 0.2
-p0 <- 0.5 - effect_size / 2
-p1 <- 0.5 + effect_size / 2
-
-for (i in 1:B) {
-  results[i,] <-
-    TSPDD(
-      pa = p0,
-      pb = p1,
-      n = Ti,
-      c = c,
-      burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
-      batch = n
-    ) 
-}
-average_power = mean(results[, 1] > qnorm(1-alpha))
-average_reward = mean(results[, 2])
-APT_ban_UR = results[,3]
-APT_w_UR = results[,4]
-#Histogram of APT_ban_UR
-hist(APT_ban_UR, freq = FALSE)
-
-F1 <- ecdf(APT_ban_UR)
-
-paste('empircal Power is', 1-F1(em_cv))
-paste('normal Power is', 1-F1(floor(norm_cv)))
-```
 ## Calculating FPR  for case where effect size is 0, to find critical values for APT_w_UR
 
-
 ```{r FPR, echo=TRUE}
 set.seed(0)
 #calculate power and reward in case p0 < p1
 alpha <- 0.05
-effect_size <- 0
+effect_size <- 0 # effect size is 0: no difference between arms
 p0 <- 0.5 - effect_size / 2
 p1 <- 0.5 + effect_size / 2
+N <- 200 # sample_size(total number of trials in one simulation)
+B <- 5000 # number of simulations
+c <- 0.1 # threshold
+burn_in <- 2 # # of burnin trials
+n <-  1 # batch_size
+Ti <- N/n # num_batches
 results <- array(dim = c(B, 4))
 for (i in 1:B) {
   results[i,] <-
     TSPDD(
       pa = p0,
       pb = p1,
-      n = Ti,
+      n = N,
       c = c,
       burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
       batch = n
@@ -465,110 +353,3 @@ F1 <- ecdf(APT_w_UR)
 paste('empircal FPR is', 1-F1(em_cv))
 paste('normal FPR is', 1-F1(floor(norm_cv)))
 ```
-
-## Calculating power when p2 -p1 = 0.05
-```{r FPR, echo=TRUE}
-set.seed(0)
-#calculate power and reward in case p0 < p1
-alpha <- 0.05
-effect_size <- 0.05
-p0 <- 0.5 - effect_size / 2
-p1 <- 0.5 + effect_size / 2
-
-for (i in 1:B) {
-  results[i,] <-
-    TSPDD(
-      pa = p0,
-      pb = p1,
-      n = Ti,
-      c = c,
-      burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
-      batch = n
-    ) 
-}
-average_power = mean(results[, 1] > qnorm(1-alpha))
-average_reward = mean(results[, 2])
-APT_ban_UR = results[,3]
-APT_w_UR = results[,4]
-#Histogram of APT_w_UR
-hist(APT_w_UR, freq = FALSE)
-
-F1 <- ecdf(APT_w_UR)
-
-paste('empircal Power is', 1-F1(em_cv))
-paste('normal Power is', 1-F1(floor(norm_cv)))
-```
-## Calculating power when p2 -p1 = 0.1
-```{r FPR, echo=TRUE}
-set.seed(0)
-#calculate power and reward in case p0 < p1
-alpha <- 0.05
-effect_size <- 0.1
-p0 <- 0.5 - effect_size / 2
-p1 <- 0.5 + effect_size / 2
-
-for (i in 1:B) {
-  results[i,] <-
-    TSPDD(
-      pa = p0,
-      pb = p1,
-      n = Ti,
-      c = c,
-      burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
-      batch = n
-    ) 
-}
-average_power = mean(results[, 1] > qnorm(1-alpha))
-average_reward = mean(results[, 2])
-APT_ban_UR = results[,3]
-APT_w_UR = results[,4]
-#Histogram of APT_w_UR
-hist(APT_w_UR, freq = FALSE)
-
-F1 <- ecdf(APT_w_UR)
-
-paste('empircal Power is', 1-F1(em_cv))
-paste('normal Power is', 1-F1(floor(norm_cv)))
-```
-
-## Calculating power when p2 -p1 = 0.2
-```{r FPR, echo=TRUE}
-set.seed(0)
-#calculate power and reward in case p0 < p1
-alpha <- 0.05
-effect_size <- 0.2
-p0 <- 0.5 - effect_size / 2
-p1 <- 0.5 + effect_size / 2
-
-for (i in 1:B) {
-  results[i,] <-
-    TSPDD(
-      pa = p0,
-      pb = p1,
-      n = Ti,
-      c = c,
-      burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
-      batch = n
-    )
-}
-average_power = mean(results[, 1] > qnorm(1-alpha))
-average_reward = mean(results[, 2])
-APT_ban_UR = results[,3]
-APT_w_UR = results[,4]
-#Histogram of APT_w_UR
-hist(APT_w_UR, freq = FALSE)
-
-F1 <- ecdf(APT_w_UR)
-
-paste('empircal Power is', 1-F1(em_cv))
-paste('normal Power is', 1-F1(floor(norm_cv)))
-```
-
-## check for normality:
-```{r}
-m <- mean(APT_w_UR)
-sd <- sqrt(var(APT_w_UR))
-
-hist((APT_w_UR-m)/sd)
-```
-
