@@ -162,8 +162,10 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
     #we are open to doing more exploration with UR
       
       # update AP_{ban UR} (without UR sampling)
-      if (draw_b >draw_a){
-        APT_ban_UR = APT_ban_UR + 1
+      if (m == 0){
+        if (draw_b >draw_a){
+          APT_ban_UR = APT_ban_UR + 1
+        }
       }
     }
     # Update arm a and arm b history
@@ -187,9 +189,12 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
     }
 
     # AP_{w/ UR} (including the ones with UR)
-    if (draw_b > draw_a){
-      APT_w_UR <- APT_w_UR + 1
+    if(m == 0){
+      if (draw_b > draw_a){
+        APT_w_UR <- APT_w_UR + 1
+      }
     }
+    
     arm_a_successes[i] <- arm_a_s
     arm_a_failures[i] <- arm_a_f
     arm_b_successes[i] <- arm_b_s
@@ -235,7 +240,7 @@ normal_cv <- function(APT, alpha){
   m <- mean(APT) 
   v <- var(APT)
   sd <- sqrt(v)
-  normal_rej <- qnorm(1-alpha)
+  normal_rej <- qnorm(1-alpha/2)
   cv <- normal_rej * sd + m
   return(cv)
 }
