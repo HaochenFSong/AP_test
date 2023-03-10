@@ -15,27 +15,9 @@ UR <- function(){
 }
 ```
 
-#TODO: refactor UR/TS repetition
-```{r setup, include=TRUE}
-UR <- function(){
-
-}
-```
-
-## Secttion 1 Running POST-Diff (Code adapted from Tong)
+## Section 1 Running POST-Diff (Code adapted from Tong)
 
 ```{r Post Diff, echo = TRUE}
-#' TSPostdiff AP Test
-#'
-#' Runs TSPostdiff in two armed scenario for n batches, with given batch size and burnin period, calculate AP Test statistic for each arm.
-#' @param pa prior probability of arm a
-#' @param pb prior probability of arm b
-#' @param n number of trials in one simulation 
-#' @param burnin number of batches that runs only uniform random sampling before applying TS-Post Diff to provide more successes and failures in the beta distribution # nolint
-#' @param batch number of trials before updating posterior probability
-#' 
-#' @return vector containing WaldScore[n], reward[n], APT_1, APT_2: the final waldscore, reward, and AP test statistics for both arms
-
 #' TSPostdiff AP Test
 #'
 #' Runs TSPostdiff in two armed scenario for n batches, with given batch size and burnin period, calculate AP Test statistic with or without UR.
@@ -80,7 +62,6 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
                            #pulled (with random probability)
     
     # if draw a is bigger than draw b
-    # if draw a is bigger than draw b
     if (draw_a > draw_b) {
       # "choose arm a"
       # Check if smaller than prior probability, update abl, number of successes & failures for arm a
@@ -92,13 +73,10 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
         arm_a_s <- arm_a_s + 1  #runif(1) is different in each pa/pb comparison
       } else {
         # arm a was not successful (not chosen)
-        # arm a was not successful (not chosen)
         abl[i] <- 0
         arm_a_f <- arm_a_f + 1
       }
     }
-
-    # if draw b is bigger than draw a
 
     # if draw b is bigger than draw a
     else{
@@ -112,9 +90,6 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
         arm_b_f <- arm_b_f + 1
       }
     }
-
-    # Update total number of success and failures for arms a and b
-    # TODO: why not directly add to arm_a_successes earlier? Difference between these
 
     # Update total number of success and failures for arms a and b
     # TODO: why not directly add to arm_a_successes earlier? Difference between these
@@ -133,40 +108,30 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
 
   # NOT BURNIN PERIOD: Use TS or UR depending on difference between posterior probabilities
   
-
-  # NOT BURNIN PERIOD: Use TS or UR depending on difference between posterior probabilities
-  
   for (i in (burnin + 1):n) {
     # update posterior probability based on batch size 
     m = i %% batch 
     # Update posterior probability
     if (m == 0){
       draw_a <-
-        rbeta(1, arm_a_successes[i - 1] + 1, arm_a_failures[i - 1] + 1) #draw from Beta(alpha, beta) distribution based on current successes & failures #draw from Beta(alpha, beta) distribution based on current successes & failures
+        rbeta(1, arm_a_successes[i - 1] + 1, arm_a_failures[i - 1] + 1) #draw from Beta(alpha, beta) distribution based on current successes & failures
       draw_b <-
-        rbeta(1, arm_b_successes[i - 1] + 1, arm_b_failures[i - 1] + 1) # alpha = current successes, beta = current failures of each arm # alpha = current successes, beta = current failures of each arm
+        rbeta(1, arm_b_successes[i - 1] + 1, arm_b_failures[i - 1] + 1) # alpha = current successes, beta = current failures of each arm
     }
-    # Does not update posterior probability 
     # Does not update posterior probability 
     else{
       draw_a <-
-        rbeta(1, arm_a_successes[i - m] + 1, arm_a_failures[i - m] + 1) # using the last settings for the distribution (not updated yet) # using the last settings for the distribution (not updated yet)
+        rbeta(1, arm_a_successes[i - m] + 1, arm_a_failures[i - m] + 1) # using the last settings for the distribution (not updated yet)
       draw_b <-
         rbeta(1, arm_b_successes[i - m] + 1, arm_b_failures[i - m] + 1)
     }
     # you can change 1000 to 10000 or whatever to make the result better.
-    
-    # if difference between the posterior proabilities is smaller than the threshold, use UR
     
     # if difference between the posterior probabilities is smaller than the threshold, use UR
     if (abs(draw_a - draw_b) < c) {
       draw_a <- runif(1)
       draw_b <- runif(1)
     } 
-    # otherwise, use TS 
-    # TODO: refactor code for TS and UR? avoid repetitive code
-    # generate TS based on past history
-    
     # otherwise, use TS 
     # TODO: refactor code for TS and UR? avoid repetitive code
     # generate TS based on past history
@@ -196,7 +161,6 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
       #willing to go back to exploiting again, when effect size is smaller, 
     #we are open to doing more exploration with UR
       
-      # update AP test statistic 1 (without UR sampling)
       # update AP_{ban UR} (without UR sampling)
       if (m == 0){
         if (draw_b >draw_a){
@@ -204,8 +168,6 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
         }
       }
     }
-    # Update arm a and arm b history
-    # Always runs, no matter if it is UR or TS 
     # Update arm a and arm b history
     # Always runs, no matter if it is UR or TS 
     if (draw_a > draw_b) {
@@ -226,8 +188,6 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
       }
     }
 
-    # AP Test statistic 2 (including the ones with UR)
-
     # AP_{w/ UR} (including the ones with UR)
     if(m == 0){
       if (draw_b > draw_a){
@@ -242,15 +202,9 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
   }
 
 
-  #TODO: this would be a list?
-  # [0,1,1,2] + [1,1,]
-
-
   #na: number of times arm A was pulled. nb: number of times arm B was pulled
   na <- arm_a_successes + arm_a_failures
   nb <- arm_b_successes + arm_b_failures
-  # estimated posterior probability of arms a and b
-  # [] posterior prob for arm a to be successful for each timepoint
   # estimated posterior probability of arms a and b
   # [] posterior prob for arm a to be successful for each timepoint
   pa_est <- arm_a_successes / na
@@ -271,7 +225,6 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
 }
 ```
 
-
 ## Finding Critical Values using Normal Assumption on Law of Large Numbers:
 
 ```{r}
@@ -287,7 +240,7 @@ normal_cv <- function(APT, alpha){
   m <- mean(APT) 
   v <- var(APT)
   sd <- sqrt(v)
-  normal_rej <- qnorm(1-alpha)
+  normal_rej <- qnorm(1-alpha/2)
   cv <- normal_rej * sd + m
   return(cv)
 }
@@ -315,19 +268,6 @@ empirical_cv <- function(APT, alpha){
   return(i-1)
 }
 ```
-
-#TODO: make function for calculating FPR and power given effect size = x?
-```{r FPR, echo=TRUE}
-
-#' Calculating FPR for Effect Size
-#'
-#' Finds critical value using empirical assumption on LLN
-#' @param APT AP Test statistic
-#' @param alpha TODO: what is this parameter?
-#' 
-#' @return critical value
-```
-
 
 #TODO: make function for calculating FPR and power given effect size = x?
 ```{r FPR, echo=TRUE}
@@ -616,7 +556,6 @@ for (i in 1:B) {
       c = c,
       burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
       batch = n
-    )
     )
 }
 average_power = mean(results[, 1] > qnorm(1-alpha))

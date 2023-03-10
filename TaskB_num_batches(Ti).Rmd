@@ -1,41 +1,17 @@
 ---
-title: "AP test application"
+title: "TaskB_num_batches(Ti)"
+author: "Bingcheng Wang"
+date: "28/02/2023"
 output: pdf_document
-date: "2022-08-18"
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-#TODO: refactor UR/TS repetition
-```{r setup, include=TRUE}
-UR <- function(){
-
-}
-```
-
-#TODO: refactor UR/TS repetition
-```{r setup, include=TRUE}
-UR <- function(){
-
-}
-```
-
-## Secttion 1 Running POST-Diff (Code adapted from Tong)
+## Section 1 Running POST-Diff (Code adapted from Tong)
 
 ```{r Post Diff, echo = TRUE}
-#' TSPostdiff AP Test
-#'
-#' Runs TSPostdiff in two armed scenario for n batches, with given batch size and burnin period, calculate AP Test statistic for each arm.
-#' @param pa prior probability of arm a
-#' @param pb prior probability of arm b
-#' @param n number of trials in one simulation 
-#' @param burnin number of batches that runs only uniform random sampling before applying TS-Post Diff to provide more successes and failures in the beta distribution # nolint
-#' @param batch number of trials before updating posterior probability
-#' 
-#' @return vector containing WaldScore[n], reward[n], APT_1, APT_2: the final waldscore, reward, and AP test statistics for both arms
-
 #' TSPostdiff AP Test
 #'
 #' Runs TSPostdiff in two armed scenario for n batches, with given batch size and burnin period, calculate AP Test statistic with or without UR.
@@ -80,7 +56,6 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
                            #pulled (with random probability)
     
     # if draw a is bigger than draw b
-    # if draw a is bigger than draw b
     if (draw_a > draw_b) {
       # "choose arm a"
       # Check if smaller than prior probability, update abl, number of successes & failures for arm a
@@ -92,13 +67,10 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
         arm_a_s <- arm_a_s + 1  #runif(1) is different in each pa/pb comparison
       } else {
         # arm a was not successful (not chosen)
-        # arm a was not successful (not chosen)
         abl[i] <- 0
         arm_a_f <- arm_a_f + 1
       }
     }
-
-    # if draw b is bigger than draw a
 
     # if draw b is bigger than draw a
     else{
@@ -115,24 +87,16 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
 
     # Update total number of success and failures for arms a and b
     # TODO: why not directly add to arm_a_successes earlier? Difference between these
-
-    # Update total number of success and failures for arms a and b
-    # TODO: why not directly add to arm_a_successes earlier? Difference between these
     arm_a_successes[i] <- arm_a_s
     arm_a_failures[i] <- arm_a_f
     arm_b_successes[i] <- arm_b_s
     arm_b_failures[i] <- arm_b_f
     
      #^^tracking the build-up of successes and failures under each arm, during
-      #each iteration of for loop, starts at 0, continues until #burnin                   
-    
-    #total iterations, first index = 0, last index = # of successes 
+      #each iteration of for loop, starts at 0, continues until #burnin                    #total iterations, first index = 0, last index = # of successes 
     
     
   }
-
-  # NOT BURNIN PERIOD: Use TS or UR depending on difference between posterior probabilities
-  
 
   # NOT BURNIN PERIOD: Use TS or UR depending on difference between posterior probabilities
   
@@ -142,31 +106,24 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
     # Update posterior probability
     if (m == 0){
       draw_a <-
-        rbeta(1, arm_a_successes[i - 1] + 1, arm_a_failures[i - 1] + 1) #draw from Beta(alpha, beta) distribution based on current successes & failures #draw from Beta(alpha, beta) distribution based on current successes & failures
+        rbeta(1, arm_a_successes[i - 1] + 1, arm_a_failures[i - 1] + 1) #draw from Beta(alpha, beta) distribution based on current successes & failures
       draw_b <-
-        rbeta(1, arm_b_successes[i - 1] + 1, arm_b_failures[i - 1] + 1) # alpha = current successes, beta = current failures of each arm # alpha = current successes, beta = current failures of each arm
+        rbeta(1, arm_b_successes[i - 1] + 1, arm_b_failures[i - 1] + 1) # alpha = current successes, beta = current failures of each arm
     }
-    # Does not update posterior probability 
     # Does not update posterior probability 
     else{
       draw_a <-
-        rbeta(1, arm_a_successes[i - m] + 1, arm_a_failures[i - m] + 1) # using the last settings for the distribution (not updated yet) # using the last settings for the distribution (not updated yet)
+        rbeta(1, arm_a_successes[i - m] + 1, arm_a_failures[i - m] + 1) # using the last settings for the distribution (not updated yet)
       draw_b <-
         rbeta(1, arm_b_successes[i - m] + 1, arm_b_failures[i - m] + 1)
     }
     # you can change 1000 to 10000 or whatever to make the result better.
-    
-    # if difference between the posterior proabilities is smaller than the threshold, use UR
     
     # if difference between the posterior probabilities is smaller than the threshold, use UR
     if (abs(draw_a - draw_b) < c) {
       draw_a <- runif(1)
       draw_b <- runif(1)
     } 
-    # otherwise, use TS 
-    # TODO: refactor code for TS and UR? avoid repetitive code
-    # generate TS based on past history
-    
     # otherwise, use TS 
     # TODO: refactor code for TS and UR? avoid repetitive code
     # generate TS based on past history
@@ -196,16 +153,11 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
       #willing to go back to exploiting again, when effect size is smaller, 
     #we are open to doing more exploration with UR
       
-      # update AP test statistic 1 (without UR sampling)
       # update AP_{ban UR} (without UR sampling)
-      if (m == 0){
-        if (draw_b >draw_a){
-          APT_ban_UR = APT_ban_UR + 1
-        }
+      if (draw_b >draw_a){
+        APT_ban_UR = APT_ban_UR + 1
       }
     }
-    # Update arm a and arm b history
-    # Always runs, no matter if it is UR or TS 
     # Update arm a and arm b history
     # Always runs, no matter if it is UR or TS 
     if (draw_a > draw_b) {
@@ -226,15 +178,10 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
       }
     }
 
-    # AP Test statistic 2 (including the ones with UR)
-
     # AP_{w/ UR} (including the ones with UR)
-    if(m == 0){
-      if (draw_b > draw_a){
-        APT_w_UR <- APT_w_UR + 1
-      }
+    if (draw_b > draw_a){
+      APT_w_UR <- APT_w_UR + 1
     }
-    
     arm_a_successes[i] <- arm_a_s
     arm_a_failures[i] <- arm_a_f
     arm_b_successes[i] <- arm_b_s
@@ -242,15 +189,9 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
   }
 
 
-  #TODO: this would be a list?
-  # [0,1,1,2] + [1,1,]
-
-
   #na: number of times arm A was pulled. nb: number of times arm B was pulled
   na <- arm_a_successes + arm_a_failures
   nb <- arm_b_successes + arm_b_failures
-  # estimated posterior probability of arms a and b
-  # [] posterior prob for arm a to be successful for each timepoint
   # estimated posterior probability of arms a and b
   # [] posterior prob for arm a to be successful for each timepoint
   pa_est <- arm_a_successes / na
@@ -270,7 +211,6 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
   return(c(WaldScore[n], reward[n], APT_ban_UR, APT_w_UR))
 }
 ```
-
 
 ## Finding Critical Values using Normal Assumption on Law of Large Numbers:
 
@@ -316,32 +256,6 @@ empirical_cv <- function(APT, alpha){
 }
 ```
 
-#TODO: make function for calculating FPR and power given effect size = x?
-```{r FPR, echo=TRUE}
-
-#' Calculating FPR for Effect Size
-#'
-#' Finds critical value using empirical assumption on LLN
-#' @param APT AP Test statistic
-#' @param alpha TODO: what is this parameter?
-#' 
-#' @return critical value
-```
-
-
-#TODO: make function for calculating FPR and power given effect size = x?
-```{r FPR, echo=TRUE}
-
-#' Calculating FPR for Effect Size
-#'
-#' Finds critical value using empirical assumption on LLN
-#' @param APT AP Test statistic
-#' @param alpha customized significance level
-#' 
-#' @return critical value
-```
-
-
 ## Calculating FPR for case where effect size is 0, to find critical values for APT_{ban UR}
 ```{r FPR, echo=TRUE}
 set.seed(0)
@@ -350,13 +264,12 @@ alpha <- 0.05
 effect_size <- 0 # effect size is 0: no difference between arms
 p0 <- 0.5 - effect_size / 2
 p1 <- 0.5 + effect_size / 2
-N <- 150 # sample_size(total number of trials in one simulation)
+N <- 200 # sample_size(total number of trials in one simulation)
 B <- 5000 # number of simulations
 c <- 0.1 # threshold
 burn_in <- 2 # # of burnin trials
-n <-  3 # batch_size
+n <-  1 # batch_size
 Ti <- N/n # num_batches
-
 results <- array(dim = c(B, 4))
 for (i in 1:B) {
   results[i,] <-
@@ -391,120 +304,28 @@ paste('empirical FPR is', 1-F1(em_cv))
 paste('normal FPR is', 1-F1(floor(norm_cv)))
 ```
 
-## Calculating power when p2 -p1 = 0.05
-```{r FPR, echo=TRUE}
-set.seed(0)
-#calculate power and reward in case p0 < p1
-alpha <- 0.05
-effect_size <- 0.05 # effect size is 0.05: difference between arm's rewards is 0.05
-p0 <- 0.5 - effect_size / 2
-p1 <- 0.5 + effect_size / 2
-
-for (i in 1:B) {
-  results[i,] <-
-    TSPDD(
-      pa = p0,
-      pb = p1,
-      n = N,
-      c = c,
-      burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
-      batch = n
-    ) 
-}
-average_power = mean(results[, 1] > qnorm(1-alpha))
-average_reward = mean(results[, 2])
-APT_ban_UR = results[,3]
-APT_w_UR = results[,4]
-
-#Histogram of APT_ban_UR
-hist(APT_ban_UR, freq = FALSE)
-F1 <- ecdf(APT_ban_UR)
-
-paste('empircal Power is', 1-F1(em_cv))
-paste('normal Power is', 1-F1(floor(norm_cv)))
-```
-## Calculating power when p2 -p1 = 0.1
-```{r FPR, echo=TRUE}
-set.seed(0)
-#calculate power and reward in case p0 < p1
-alpha <- 0.05
-effect_size <- 0.1
-p0 <- 0.5 - effect_size / 2
-p1 <- 0.5 + effect_size / 2
-
-for (i in 1:B) {
-  results[i,] <-
-    TSPDD(
-      pa = p0,
-      pb = p1,
-      n = Ti,
-      c = c,
-      burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
-      batch = n
-    ) 
-}
-average_power = mean(results[, 1] > qnorm(1-alpha))
-average_reward = mean(results[, 2])
-APT_ban_UR = results[,3]
-APT_w_UR = results[,4]
-#Histogram of APT_ban_UR
-hist(APT_ban_UR, freq = FALSE)
-
-F1 <- ecdf(APT_ban_UR)
-
-paste('empircal Power is', 1-F1(em_cv))
-paste('normal Power is', 1-F1(floor(norm_cv)))
-```
-
-## Calculating power when p2 -p1 = 0.2
-```{r FPR, echo=TRUE}
-set.seed(0)
-#calculate power and reward in case p0 < p1
-alpha <- 0.05
-effect_size <- 0.2
-p0 <- 0.5 - effect_size / 2
-p1 <- 0.5 + effect_size / 2
-
-for (i in 1:B) {
-  results[i,] <-
-    TSPDD(
-      pa = p0,
-      pb = p1,
-      n = Ti,
-      c = c,
-      burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
-      batch = n
-    ) 
-}
-average_power = mean(results[, 1] > qnorm(1-alpha))
-average_reward = mean(results[, 2])
-APT_ban_UR = results[,3]
-APT_w_UR = results[,4]
-#Histogram of APT_ban_UR
-hist(APT_ban_UR, freq = FALSE)
-
-F1 <- ecdf(APT_ban_UR)
-
-paste('empircal Power is', 1-F1(em_cv))
-paste('normal Power is', 1-F1(floor(norm_cv)))
-```
 ## Calculating FPR  for case where effect size is 0, to find critical values for APT_w_UR
 
-
 ```{r FPR, echo=TRUE}
 set.seed(0)
 #calculate power and reward in case p0 < p1
 alpha <- 0.05
-effect_size <- 0
+effect_size <- 0 # effect size is 0: no difference between arms
 p0 <- 0.5 - effect_size / 2
 p1 <- 0.5 + effect_size / 2
+N <- 200 # sample_size(total number of trials in one simulation)
+B <- 5000 # number of simulations
+c <- 0.1 # threshold
+burn_in <- 2 # # of burnin trials
+n <-  1 # batch_size
+Ti <- N/n # num_batches
 results <- array(dim = c(B, 4))
 for (i in 1:B) {
   results[i,] <-
     TSPDD(
       pa = p0,
       pb = p1,
-      n = Ti,
+      n = N,
       c = c,
       burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
       batch = n
@@ -532,111 +353,3 @@ F1 <- ecdf(APT_w_UR)
 paste('empircal FPR is', 1-F1(em_cv))
 paste('normal FPR is', 1-F1(floor(norm_cv)))
 ```
-
-## Calculating power when p2 -p1 = 0.05
-```{r FPR, echo=TRUE}
-set.seed(0)
-#calculate power and reward in case p0 < p1
-alpha <- 0.05
-effect_size <- 0.05
-p0 <- 0.5 - effect_size / 2
-p1 <- 0.5 + effect_size / 2
-
-for (i in 1:B) {
-  results[i,] <-
-    TSPDD(
-      pa = p0,
-      pb = p1,
-      n = Ti,
-      c = c,
-      burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
-      batch = n
-    ) 
-}
-average_power = mean(results[, 1] > qnorm(1-alpha))
-average_reward = mean(results[, 2])
-APT_ban_UR = results[,3]
-APT_w_UR = results[,4]
-#Histogram of APT_w_UR
-hist(APT_w_UR, freq = FALSE)
-
-F1 <- ecdf(APT_w_UR)
-
-paste('empircal Power is', 1-F1(em_cv))
-paste('normal Power is', 1-F1(floor(norm_cv)))
-```
-## Calculating power when p2 -p1 = 0.1
-```{r FPR, echo=TRUE}
-set.seed(0)
-#calculate power and reward in case p0 < p1
-alpha <- 0.05
-effect_size <- 0.1
-p0 <- 0.5 - effect_size / 2
-p1 <- 0.5 + effect_size / 2
-
-for (i in 1:B) {
-  results[i,] <-
-    TSPDD(
-      pa = p0,
-      pb = p1,
-      n = Ti,
-      c = c,
-      burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
-      batch = n
-    ) 
-}
-average_power = mean(results[, 1] > qnorm(1-alpha))
-average_reward = mean(results[, 2])
-APT_ban_UR = results[,3]
-APT_w_UR = results[,4]
-#Histogram of APT_w_UR
-hist(APT_w_UR, freq = FALSE)
-
-F1 <- ecdf(APT_w_UR)
-
-paste('empircal Power is', 1-F1(em_cv))
-paste('normal Power is', 1-F1(floor(norm_cv)))
-```
-
-## Calculating power when p2 -p1 = 0.2
-```{r FPR, echo=TRUE}
-set.seed(0)
-#calculate power and reward in case p0 < p1
-alpha <- 0.05
-effect_size <- 0.2
-p0 <- 0.5 - effect_size / 2
-p1 <- 0.5 + effect_size / 2
-
-for (i in 1:B) {
-  results[i,] <-
-    TSPDD(
-      pa = p0,
-      pb = p1,
-      n = Ti,
-      c = c,
-      burnin = burn_in, #burnin=1 means no burnin needs to be larger than batch-1
-      batch = n
-    )
-    )
-}
-average_power = mean(results[, 1] > qnorm(1-alpha))
-average_reward = mean(results[, 2])
-APT_ban_UR = results[,3]
-APT_w_UR = results[,4]
-#Histogram of APT_w_UR
-hist(APT_w_UR, freq = FALSE)
-
-F1 <- ecdf(APT_w_UR)
-
-paste('empircal Power is', 1-F1(em_cv))
-paste('normal Power is', 1-F1(floor(norm_cv)))
-```
-
-## check for normality:
-```{r}
-m <- mean(APT_w_UR)
-sd <- sqrt(var(APT_w_UR))
-
-hist((APT_w_UR-m)/sd)
-```
-
