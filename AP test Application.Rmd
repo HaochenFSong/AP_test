@@ -8,240 +8,243 @@ date: "2022-08-18"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Section 1 Running POST-Diff (Code adapted from Tong)
+## Section 1 Running TS-PostDiff (Code adapted from Tong)
 
-```{r Post Diff, echo = TRUE}
-#' TSPostdiff AP Test
+```{r PostDiff, echo = TRUE}
+#' TS-PostDiff - Allocation Probability Test
 #'
-#' Runs TSPostdiff in two armed scenario for n batches, with given batch size and burnin period, calculate AP Test statistic for each arm.
-#' @param pa prior probability of arm a
-#' @param pb prior probability of arm b
-#' @param n number of trials in one simulation 
-#' @param burnin number of batches that runs only uniform random sampling before applying TS-Post Diff to provide more successes and failures in the beta distribution # nolint
-#' @param batch number of trials before updating posterior probability
-#' 
-#' @return vector containing WaldScore[n], reward[n], APT_1, APT_2: the final waldscore, reward, and AP test statistics for both arms
+#' Runs TS-PostDiff algorithm in two-armed case, for n batches, with given batch size and BURNIN period, to calculate an AP Test statistic for each arm
+
+#' @param pa - actual prior probability of arm a (typically unknown in practice)
+#' @param pb - actual prior probability of arm b (typically unknown in practice)
+#' @param n - total number of trials in one simulation 
+#' @param c - threshold of difference in expected reward between the two arms
+#' @param burnin - number of trials that run only Uniform Random (UR) sampling, before applying the TS-PostDiff algorithm for all remaining trials, and updating posterior probability every batch (using beta distribution)
+#' @param batch - number of trials before posterior probability is updated
+#'
+#' @return vector containing WaldScore[n], reward[n], APT_1, APT_2: the final waldscore, reward, and AP Test statistics for both arms
 
 TSPDD <- function(pa, pb, n, c, burnin, batch) {
-  # Track successes and failures under each arm
-  # ex. [0,1,1,1,2,3,3,4,5,6] final index indicates total number total successes
+
+  # List: tracking successes and failures under each arm
+  # ex. [0,1,1,1,2,3,3,4,5,6], final index value indicates total number of successes/failures
   arm_a_successes <- c(0)
   arm_a_failures <- c(0)
   arm_b_successes <- c(0)
   arm_b_failures <- c(0)
   
-  # Current success and failure (changes for each trial)
+  # List: tracking only the current number of successes and failures (Value changes for each iteration)
   arm_a_s <- c(0)
   arm_a_f <- c(0)
   arm_b_s <- c(0)
   arm_b_f <- c(0)
 
-  # History that tracks if there was success in either arm for each trial
-  # ex. [1,0,1,1,0,1] 1 indicates success for either arm, 0 indicates no success for either arm
+  # History that tracks if there was success in either arm for each trial (Variable not used in final results)
+  # ex. [1,0,1,1,0,1] 1 indicates success for either arm, 0 indicates failure for both arms
   abl <- c()
  
-  # AP Test statistic for arm a
-  APT_ban_UR = 0 # not including batches using UR
-  APT_w_UR = 0 # including batches using UR
+  APT_ban_UR = 0 # AP Test statistic, not including batches using UR sampling
+  APT_w_UR = 0 # AP Test statistic, including batches using UR sampling
   
+  # ---------- BURNIN PERIOD: use Uniform Random (UR) sampling only ----------
   
-  # BURNIN PERIOD: use Uniform Random (UR) only
   for (i in 1:burnin) {
 
-    # Draw a and draw b are local variables assigned random values 0-1
-    draw_a <- runif(1) # Probability of drawing arm a
-    draw_b <- runif(1) # Probability of drawing arm b
+    draw_a <- runif(1) # Random probability of arm a being chosen
+    draw_b <- runif(1) # Random probability of arm b being chosen
 
-    # CASE 1: choose arm a
+    # CASE 1: Arm a is chosen
     if (draw_a > draw_b) {
-      # Arm a was successful
+      # Arm a was successful  
       if (runif(1) < pa) {
         abl[i] <- 1
-        arm_a_s <- arm_a_s + 1 # update arm a successes
+        arm_a_s <- arm_a_s + 1 # update arm a success count
       } 
       # Arm a was not successful
       else {       
         abl[i] <- 0
-        arm_a_f <- arm_a_f + 1 # update arm a failures
+        arm_a_f <- arm_a_f + 1 # update arm a failure count
       }
     }
 
-    # CASE 2: choose arm b
-    else{
+    # CASE 2: Arm b is chosen
+    else {
       # Arm b was successful
       if (runif(1) < pb) {
         abl[i] <- 1
-        arm_b_s <- arm_b_s + 1 # update arm b successes
+        arm_b_s <- arm_b_s + 1 # update arm b success count
       }
       # Arm b was not successful
       else {
         abl[i] <- 0
-        arm_b_f <- arm_b_f + 1 # update arm b failures
+        arm_b_f <- arm_b_f + 1 # update arm b failure count
       }
     }
 
-    # Update total number of success and failures for arms a and b
+    # Tracking the build-up of total number of successes, failures, for arm a & b
     arm_a_successes[i] <- arm_a_s
     arm_a_failures[i] <- arm_a_f
     arm_b_successes[i] <- arm_b_s
     arm_b_failures[i] <- arm_b_f 
-     
-    #tracking the build-up of successes and failures under each arm, during
-    #each iteration of for loop: starts at 0, continues until #burnin                       
   }
-
-  # NOT BURNIN PERIOD: Use TS or UR depending on difference between posterior probabilities
+  
+  # ---------- AFTER BURNIN PERIOD: Use TS or UR depending on difference between posterior probabilities ----------
+  
   for (i in (burnin + 1):n) {
 
-    # Posterior probability is updated according to batch size (when m = 0)
+    # Posterior probability updates happen by batch size (whenever m becomes 0, larger batch size -> slower updates)
     m = i %% batch 
+    
+    # Draw from Beta(alpha, beta) distribution, using only the current success & failure counts 
+    # alpha = current successes, beta = current failures of each arm
 
-    # Update posterior probability of arms a and b
-    if (m == 0){
-      # draw from Beta(alpha, beta) distribution based on current successes & failures 
-      # alpha = current successes, beta = current failures of each arm
+    # CASE 1: Posterior probability of arms a & b is updated
+    if (m == 0) {
       draw_a <-
         rbeta(1, arm_a_successes[i - 1] + 1, arm_a_failures[i - 1] + 1) 
       draw_b <-
         rbeta(1, arm_b_successes[i - 1] + 1, arm_b_failures[i - 1] + 1) 
     }
-
-    # Does not update posterior probability 
-    else{
-      # i-m indicates that we are using the posterior probabilities from the previous batch
+    
+    # CASE 2: Posterior probability of arms a & b is not updated
+    else {
       draw_a <-
         rbeta(1, arm_a_successes[i - m] + 1, arm_a_failures[i - m] + 1) 
       draw_b <-
         rbeta(1, arm_b_successes[i - m] + 1, arm_b_failures[i - m] + 1)
+        
+    # Using index [i - m] shows we are using the posterior probabilities from the previous batch, and not our most current success/failure counts
     }
 
-    # Use UR: if difference between the posterior probabilities of the two arms is smaller than the threshold, 
+    # Use UR: If difference between posterior probabilities of arms is less than threshold value (expected difference in reward between arms)
     if (abs(draw_a - draw_b) < c) {
-      draw_a <- runif(1)
-      draw_b <- runif(1)
+      draw_a <- runif(1) # Random probability of arm a being chosen
+      draw_b <- runif(1) # Random probability of arm b being chosen
     } 
-    # Use TS otherwise
+    
+    # Use TS: If difference between posterior probabilities of arms crosses threshold value (expected difference in reward between arms)
     else {
-      if (m == 0){ #greater batch size -> slower and less post prob updates
+      # CASE 1: Posterior probability of arms a & b is updated
+      if (m == 0) {
         draw_a <-
           rbeta(1, arm_a_successes[i - 1] + 1, arm_a_failures[i - 1] + 1)
         draw_b <-
           rbeta(1, arm_b_successes[i - 1] + 1, arm_b_failures[i - 1] + 1)
       }
-      else{
+      # CASE 2: Posterior probability of arms a & b is not updated
+      else {
         draw_a <-
           rbeta(1, arm_a_successes[i - m] + 1, arm_a_failures[i - m] + 1)
         draw_b <-
           rbeta(1, arm_b_successes[i - m] + 1, arm_b_failures[i - m] + 1)
       }
       
-      # Update AP_{ban UR} (without UR sampling)
-      if (m == 0){
-        if (draw_b >draw_a){
+      # APT_{ban UR} statistic is updated (version without UR sampling trials, inner indentation level)
+      if (m == 0) {
+      # APT_{ban UR} only counting cases where arm b is chosen, "experimental" arm
+        if (draw_b > draw_a) {
           APT_ban_UR = APT_ban_UR + 1
         }
       }
     }
 
-    # Update AP_{w/ UR} (including the ones with UR)
-    if(m == 0){
-      if (draw_b > draw_a){
-        APT_w_UR <- APT_w_UR + 1
+    # APT_{w UR} statistic is updated (version including trials with UR sampling, outer indentation level)
+    if (m == 0) {
+    # APT_{w UR} only counting cases where arm b is chosen, "experimental" arm
+      if (draw_b > draw_a) {
+        APT_w_UR = APT_w_UR + 1
       }
     }
 
-    # Update arm a and arm b history, successes, and failures
+    # Update arm a & b history (abl), successes, and failures
     if (draw_a > draw_b) {
       if (runif(1) < pa) {
         abl[i] <- 1
-        arm_a_s <- arm_a_s + 1
+        arm_a_s <- arm_a_s + 1 # update arm a success count
       } else {
         abl[i] <- 0
-        arm_a_f <- arm_a_f + 1
+        arm_a_f <- arm_a_f + 1 # update arm a failure count
       }
     } else{
       if (runif(1) < pb) {
         abl[i] <- 1
-        arm_b_s <- arm_b_s + 1
+        arm_b_s <- arm_b_s + 1 update arm b success count
       } else {
         abl[i] <- 0
-        arm_b_f <- arm_b_f + 1
+        arm_b_f <- arm_b_f + 1 update arm b failure count
       }
     }  
+    
+    # Tracking the build-up of total number of successes, failures, for arm a & b, adding onto successes and failures from burnin period
     arm_a_successes[i] <- arm_a_s
     arm_a_failures[i] <- arm_a_f
     arm_b_successes[i] <- arm_b_s
     arm_b_failures[i] <- arm_b_f
   }
 
-
-  # (list) running history of number of times arm A and B were pulled
+  # List: complete history of number of times arms a & b were chosen (final index, total number of times chosen for each)
   na <- arm_a_successes + arm_a_failures
   nb <- arm_b_successes + arm_b_failures
 
-  # (list) running history of posterior prob for arm A and B to be successful
+  # List: complete history of estimated posterior probability updates, for arm a & b success (final index, final posterior probability for each)
   pa_est <- arm_a_successes / na
   pb_est <- arm_b_successes / nb
 
-  # Wald Score for confidence interval: is a way to analyze categorical data underlying chi-squared distribution vectors, instead of summation
-  WaldScore <-
-    (pa_est - pb_est) / sqrt(pa_est * (1 - pa_est) / na + pb_est * (1 - pb_est) /nb)
+  # Wald Score for confidence interval: for analyzing categorical data underlying chi-squared distribution vectors, instead of summation
+  WaldScore <- (pa_est - pb_est) / sqrt(pa_est * (1 - pa_est) / na + pb_est * (1 - pb_est) / nb)
   
-  # (list) expected reward we have from both arms at different sample sizes
+  # List: our expected reward, from both arms (number of times chosen * posterior success probability, for each arm)
   reward <- (na * pa + nb * pb) / c(1:n)
+  # Lists out the average expected reward for each individual trial (final index, final expected reward value)
   
   return(c(WaldScore[n], reward[n], APT_ban_UR, APT_w_UR))
 }
 ```
 
-
-## Finding Critical Values using Normal Assumption on Law of Large Numbers:
+## Finding Critical Values, Using Normal Assumption on Law of Large Numbers:
 
 ```{r}
 #' Critical Value (Normal)
 #'
 #' Finds critical value using normal assumption on LLN
-#' @param APT AP Test statistic (list)
-#' @param alpha Customized significance level (float)
+#' @param APT - AP Test statistic (List of either APT_ban_UR/APT_w_UR results across different simulations)
+#' @param alpha - Customized significance level
 #' 
 #' @return generated critical value from normality assumption
 
-normal_cv <- function(APT, alpha){
+normal_cv <- function(APT, alpha) {
   m <- mean(APT) 
   v <- var(APT)
   sd <- sqrt(v)
-  normal_rej <- qnorm(1-alpha)
+  normal_rej <- qnorm(1 - alpha) #Rejection area defined (following normal distribution assumption)
   cv <- normal_rej * sd + m
   return(cv)
 }
 ```
 
-## Finding Critical Values using Empirical Assumption on 5000 simulations:
+## Finding Critical Values, Using Empirical Assumption (5000 simulations)
 
 ```{r}
 #' Critical Value (Empirical)
 #'
 #' Finds critical value using empirical assumption on LLN
-#' @param APT AP Test statistic (list)
-#' @param alpha Customized significance level (float)
+#' @param APT - AP Test statistic (List of either APT_ban_UR/APT_w_UR results across different simulations)
+#' @param alpha - Customized significance level
 #' 
 #' @return generated critical value from empirical simulations
 
-empirical_cv <- function(APT, alpha){
+empirical_cv <- function(APT, alpha) {
   cdf = 0
   i = 0 
-
-  # Repeat until cdf reaches 1-significance level
-  while (cdf <= 1- alpha){
-    p_i <-sum(APT == i)/length(APT) # Actual probability from empirical values
+  # Repeatedly add the empirical probabilities of each [i] value until cdf reaches 1 - significance level
+  while (cdf <= 1- alpha) {
+    p_i <-sum(APT == i)/length(APT)
     cdf <- sum(cdf, p_i)
     i = i + 1
   }
-  return(i-1)
+  return(i - 1) 
 }
 ```
-
-
 
 ## Calculating FPR for case where effect size is 0, to find critical values for APT_{ban UR}
 ```{r FPR, echo=TRUE}
