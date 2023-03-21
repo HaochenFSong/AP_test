@@ -168,10 +168,10 @@ TSPDD <- function(pa, pb, n, c, burnin, batch) {
     } else{
       if (runif(1) < pb) {
         abl[i] <- 1
-        arm_b_s <- arm_b_s + 1 update arm b success count
+        arm_b_s <- arm_b_s + 1 #update arm b success count
       } else {
         abl[i] <- 0
-        arm_b_f <- arm_b_f + 1 update arm b failure count
+        arm_b_f <- arm_b_f + 1 #update arm b failure count
       }
     }  
     
