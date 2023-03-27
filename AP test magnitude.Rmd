@@ -290,7 +290,7 @@ alpha <- 0.05
 effect_size <- 0 # effect size is 0: no difference between arms
 p0 <- 0.5 - effect_size / 2
 p1 <- 0.5 + effect_size / 2
-N <- 150 # sample_size(total number of trials in one simulation)
+N <- 300 # sample_size(total number of trials in one simulation)
 B <- 5000 # number of simulations
 c <- 0.1 # threshold
 burn_in <- 2 # # of burnin trials

@@ -1,0 +1,108 @@
+---
+title: "Nina's result replication"
+author: "AP Test Team"
+format: pdf
+editor: visual
+  warning: false
+  message: false
+---
+
+# Replication of Nina's results:
+
+This file is aimed to replicate the results from Nina's Allocation Probability Test Paper:
+
+At: https://arxiv.org/pdf/2111.00137.pdf
+
+Especially graphs at A4
+
+It is to provide the correct sanity check before moving into using magnitude to compare between the results.
+
+The .stan code for generating a K arm gaussian thompson sampling setting is at: gaussian_ts.stan
+
+A demo of running such is below:
+
+```{r}
+library(rstan) # enable rstan, feel free to use install.packages('rstan')
+library(tidyverse) # for simplicity of changing tibbles
+library(tidybayes) # for simiplicity of viewing stan results
+library(here) # universal access to the ap folder
+```
+
+```{r}
+# let's run a quick simulation, with 4 arms, and 1000 iterations, 
+# each arm has reward N(0,1)
+
+# Define the data for the simulation
+K <- 4 # number of arms
+N <- 1000 # number of participants (trials)
+mu0 <- c(0, 0, 0, 0) # prior means of the arms
+sigma0 <- 1 # prior standard deviation of the arms
+sigma <- 1 # true standard deviation of the rewards
+
+# Compile the Stan model
+stan_model <- stan_model(file = "code_check/gaussian_ts.stan")
+
+# Run the simulation
+sim_data <- list(K = K,
+                 N = N,
+                 mu0 = mu0, 
+                 sigma0 = sigma0, 
+                 sigma = sigma)
+sim_results <- sampling(stan_model, 
+                        data = sim_data, 
+                        iter = 1000,  # number of simulations
+                        chains = 4) # on how many chains
+                        #algorithm = "Fixed_param")
+
+# Extract the results
+rewards <- extract(sim_results, "rewards")$rewards
+chosen_arm <- extract(sim_results, "chosen_arm")$chosen_arm
+
+sim_results
+
+```
+
+now let's move to a two arm setting with it's allocation probability, this one it is in gaussian_2arm.stan
+
+```{r}
+
+# Define the data for the simulation
+N <- 1000 # number of trials
+mu0 <- c(0, 0) # prior means of the arms
+              # remember arm 1 is experimental, arm 2 is controlled
+sigma0 <- 1 # prior standard deviation of the arms
+sigma <- 1 # true standard deviation of the rewards
+
+# Compile the Stan model
+stan_model <- stan_model(file = "gaussian_2arm.stan")
+
+# Run the simulation
+sim_data <- list(N = N, 
+                 mu0 = mu0, 
+                 sigma0 = sigma0, 
+                 sigma = sigma)
+sim_results <- sampling(stan_model, 
+                        data = sim_data, 
+                        iter = 1000, 
+                        chains = 4,
+                        refresh = 0)  # what is the chains doing here???hmmm the dim doesn't match lol
+                        #algorithm = "Fixed_param")
+
+# Extract the results
+rewards <- extract(sim_results, "rewards")$rewards
+chosen_arm <- extract(sim_results, "chosen_arm")$chosen_arm
+allocation_prob <- as.tibble(t(extract(sim_results, "allocation_prob")$allocation_prob))
+
+```
+
+and we can take a quick look at such:
+
+```{r}
+allocation_prob |>
+  pivot_longer(V1:V2000, names_to = 'experiment', values_to = 'AP') |>
+  group_by(experiment) |>
+  summarise(APT = sum(AP >= 0.5)) |>
+  ggplot(aes(APT)) +
+  geom_histogram(fill = 'lightblue') +
+  theme_bw()
+```
