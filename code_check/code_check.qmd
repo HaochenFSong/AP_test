@@ -40,7 +40,7 @@ sigma0 <- 1 # prior standard deviation of the arms
 sigma <- 1 # true standard deviation of the rewards
 
 # Compile the Stan model
-stan_model <- stan_model(file = "code_check/gaussian_ts.stan")
+stan_model <- stan_model(file = "gaussian_ts.stan")
 
 # Run the simulation
 sim_data <- list(K = K,
@@ -51,23 +51,26 @@ sim_data <- list(K = K,
 sim_results <- sampling(stan_model, 
                         data = sim_data, 
                         iter = 1000,  # number of simulations
-                        chains = 4) # on how many chains
+                        chains = 4,
+                        refresh = 0) # on how many chains
                         #algorithm = "Fixed_param")
 
 # Extract the results
-rewards <- extract(sim_results, "rewards")$rewards
-chosen_arm <- extract(sim_results, "chosen_arm")$chosen_arm
-
-sim_results
+# for people who used tidyr, please note that this extract function comes from rstan
+rewards <- rstan::extract(sim_results, "rewards")$rewards
+chosen_arm <- rstan::extract(sim_results, "chosen_arm")$chosen_arm
 
 ```
+
+
 
 now let's move to a two arm setting with it's allocation probability, this one it is in gaussian_2arm.stan
 
 ```{r}
 
 # Define the data for the simulation
-N <- 1000 # number of trials
+N <- 30 # number of batches
+batch_size <- 3
 mu0 <- c(0, 0) # prior means of the arms
               # remember arm 1 is experimental, arm 2 is controlled
 sigma0 <- 1 # prior standard deviation of the arms
@@ -78,6 +81,7 @@ stan_model <- stan_model(file = "gaussian_2arm.stan")
 
 # Run the simulation
 sim_data <- list(N = N, 
+                 batch_size = batch_size,
                  mu0 = mu0, 
                  sigma0 = sigma0, 
                  sigma = sigma)
@@ -89,9 +93,9 @@ sim_results <- sampling(stan_model,
                         #algorithm = "Fixed_param")
 
 # Extract the results
-rewards <- extract(sim_results, "rewards")$rewards
-chosen_arm <- extract(sim_results, "chosen_arm")$chosen_arm
-allocation_prob <- as.tibble(t(extract(sim_results, "allocation_prob")$allocation_prob))
+rewards <- rstan::extract(sim_results, "rewards")$rewards
+chosen_arm <- rstan::extract(sim_results, "chosen_arm")$chosen_arm
+allocation_prob <- as.tibble(t(extract(sim_results, "batch_allocation_prob")$batch_allocation_prob))
 
 ```
 
@@ -99,10 +103,11 @@ and we can take a quick look at such:
 
 ```{r}
 allocation_prob |>
-  pivot_longer(V1:V2000, names_to = 'experiment', values_to = 'AP') |>
+  pivot_longer(V1:V2000, names_to = 'experiment', values_to = 'AP')|>
   group_by(experiment) |>
   summarise(APT = sum(AP >= 0.5)) |>
   ggplot(aes(APT)) +
   geom_histogram(fill = 'lightblue') +
   theme_bw()
 ```
+hmmmmm it doesn't match....
